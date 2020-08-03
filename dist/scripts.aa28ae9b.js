@@ -449,9 +449,7 @@ var _visuals = _interopRequireDefault(require("./visuals"));
 
 var _audio = _interopRequireDefault(require("./audio"));
 
-var _flocking = _interopRequireDefault(require("./agents/flocking"));
-
-var _impulse = _interopRequireDefault(require("./agents/impulse"));
+var _chord = _interopRequireDefault(require("./agents/chord"));
 
 var _utils = require("./utils");
 
@@ -463,7 +461,8 @@ function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj;
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-//import ChordAgent from './agents/chord'
+// import FlockingAgent from './agents/flocking'
+// import ImpulseAgent from './agents/impulse'
 let dbAgentNames = [];
 let agentCollection = {}; // DOM objects
 
@@ -592,9 +591,9 @@ function startPerformance() {
   audio = new _audio.default();
   audio.setup(!hasControl);
   agentCollection = {
-    impulse: new _impulse.default({}, visuals, audio.gain),
-    // chord: new ChordAgent({}, visuals, audio.gain),
-    flocking: new _flocking.default({}, visuals, audio.gain)
+    // impulse: new ImpulseAgent({}, visuals, audio.gain),
+    chord: new _chord.default({}, visuals, audio.gain) // flocking: new FlockingAgent({}, visuals, audio.gain),
+
   }; // Initialise remote control via Firebase
 
   if (!forcedAgentParam) {
@@ -646,7 +645,7 @@ if (!(0, _utils.isAudioSupported)() //  ||
   } else {
   init();
 }
-},{"../styles/index.scss":"1d1022d663f842985bdd1ed6e1d8b81c","url:../files/crackles.wav":"3b05086cb1c900baa4b21259495a1209","firebase/app":"513add1cebfbf2d92aedab63c9afd4ba","firebase/database":"fec2c7fcdbace8c49f19d39de584f6f8","./visuals":"f13df1fcdf468d455bc8026f71881581","./audio":"d3815e857d32889aef5b29f3ae04f688","./agents/flocking":"7e352fb233400a283b83024ea642ce3e","./utils":"4a1b9fb8a9bff5151cd568c9bcbb2aec","../firebase.json":"830ce48931a6ecc988fe85d7f63f8b93","./agents/impulse":"0dd6ff2a1abedea40bcb41337c711a07"}],"1d1022d663f842985bdd1ed6e1d8b81c":[function() {},{}],"3b05086cb1c900baa4b21259495a1209":[function(require,module,exports) {
+},{"../styles/index.scss":"1d1022d663f842985bdd1ed6e1d8b81c","url:../files/crackles.wav":"3b05086cb1c900baa4b21259495a1209","firebase/app":"513add1cebfbf2d92aedab63c9afd4ba","firebase/database":"fec2c7fcdbace8c49f19d39de584f6f8","./visuals":"f13df1fcdf468d455bc8026f71881581","./audio":"d3815e857d32889aef5b29f3ae04f688","./utils":"4a1b9fb8a9bff5151cd568c9bcbb2aec","../firebase.json":"830ce48931a6ecc988fe85d7f63f8b93","./agents/chord":"b9e665925a6158b86c87379809f168e2"}],"1d1022d663f842985bdd1ed6e1d8b81c":[function() {},{}],"3b05086cb1c900baa4b21259495a1209":[function(require,module,exports) {
 module.exports = require('./bundle-url').getBundleURL() + require('./relative-path')("a6f0be86b872c13c", "4058792b884f4f3a");
 },{"./bundle-url":"2146da1905b95151ed14d455c784e7b7","./relative-path":"1b9943ef25c7bbdf0dd1b9fa91880a6c"}],"2146da1905b95151ed14d455c784e7b7":[function(require,module,exports) {
 "use strict";
@@ -41393,257 +41392,26 @@ var define;
           Xs = se;
   }]);
 }); //# sourceMappingURL=Tone.js.map
-},{}],"7e352fb233400a283b83024ea642ce3e":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.default = void 0;
-
-var _aWeighting = require("a-weighting");
-
-var _utils = require("../utils");
-
-var _tone = require("tone");
-
-// import bandpassChordDetector from '../behaviours/bandpassPolyTracker'
-const defaultOptions = {
-  filterQ: 0.75,
-  filterRange: 7,
-  filterRolloff: -24,
-  minInitialNote: 60,
-  maxInitialNote: 82,
-  minLFOFrequency: 0.1,
-  maxLFOFrequency: 0.75,
-  minVelocity: 0.001,
-  maxVelocity: 0.005,
-  velocityRange: 1,
-  minVolume: 0.25,
-  maxVolume: 0.5,
-  triggerChord: [60, 67]
-};
-
-function midiToFrequency(midi) {
-  return new _tone.Frequency(midi, "midi").toFrequency();
-}
-
-class FlockingAgent {
-  constructor(options = {}, visuals, gainNode) {
-    this.visuals = visuals;
-    this.options = Object.assign({}, defaultOptions, options); // Synthesized sound of our agent (output)
-
-    this.synth = new _tone.Synth({
-      oscillator: {
-        type: 'sine'
-      },
-      envelope: {
-        attack: 0.005,
-        decay: 0.1,
-        sustain: 1,
-        release: 1
-      }
-    });
-    this.synthGainNode = new _tone.Gain();
-    this.synthGainNode.toDestination();
-    this.synth.connect(this.synthGainNode); // Filters to analyse the signal at two poles around the center
-
-    this.filterLeft = new _tone.Filter({
-      frequency: 440,
-      type: 'bandpass',
-      rolloff: this.options.filterRolloff,
-      Q: this.options.filterQ,
-      gain: 0
-    });
-    this.filterRight = new _tone.Filter({
-      frequency: 440,
-      type: 'bandpass',
-      rolloff: this.options.filterRolloff,
-      Q: this.options.filterQ,
-      gain: 0
-    });
-    this.meterLeft = new _tone.Meter();
-    this.meterRight = new _tone.Meter();
-    gainNode.connect(this.filterLeft);
-    gainNode.connect(this.filterRight);
-    this.filterLeft.connect(this.meterLeft);
-    this.filterRight.connect(this.meterRight); // Choose some random parameters
-
-    this.newRandomNote(); // LFO for controlling the synth gain
-
-    const lfoFrequency = (0, _utils.randomRange)(this.options.minLFOFrequency, this.options.maxLFOFrequency);
-    this.gainLFO = new _tone.LFO(lfoFrequency, this.options.minVolume, this.options.maxVolume);
-    this.gainLFO.connect(this.synthGainNode.gain); // this.bandpassChordDetector = bandpassChordDetector(
-    //   this.options.triggerChord,
-    //   gainNode
-    // )
-
-    this.interval = null;
-  }
-
-  newRandomNote() {
-    this.velocity = (0, _utils.randomRange)(this.options.minVelocity, this.options.maxVelocity);
-    this.initialNote = (0, _utils.randomRange)(this.options.minInitialNote, this.options.maxInitialNote);
-    this.currentNote = this.initialNote;
-    this.currentVelocity = this.velocity; // Set the filter poles to initial positions
-
-    this.setFilterPoles(this.initialNote);
-  }
-
-  start() {
-    this.newRandomNote(); // The synthesizer play all the time, trigger its note
-
-    this.synth.triggerAttack(midiToFrequency(this.initialNote)); // Start the LFO
-
-    this.gainLFO.start(); // Change screen color
-
-    this.interval = setInterval(() => {
-      const nextFrequency = midiToFrequency(this.currentNote);
-      this.visuals.setToColor([0, 0, 105 + Math.round(nextFrequency) % 150]);
-    }, 1000);
-  }
-
-  stop() {
-    this.synth.triggerRelease(); // Stop the LFO
-
-    this.gainLFO.stop(); // Remove overlay
-
-    this.visuals.resetColor();
-    clearInterval(this.interval);
-  }
-
-  setFilterPoles(centerNote) {
-    const {
-      filterRange
-    } = this.options;
-    const left = midiToFrequency(centerNote - filterRange);
-    const right = midiToFrequency(centerNote + filterRange);
-    this.filterLeft.frequency.setValueAtTime(left, '+0');
-    this.filterRight.frequency.setValueAtTime(right, '+0');
-  }
-
-  update() {
-    // Generate random frequency when chord was detected
-    // if (this.bandpassChordDetector()) {
-    //   this.newRandomNote()
-    //   this.visuals.flash()
-    // }
-    // Get meter and frequency values of our filter poles
-    const leftMeterValue = this.meterLeft.getValue();
-    const rightMeterValue = this.meterRight.getValue();
-    const leftFilterFreq = this.filterLeft.frequency.value;
-    const rightFilterFreq = this.filterRight.frequency.value; // Make all frequencies equally loud
-
-    const weightedLeftMeterValue = (0, _aWeighting.a)(leftFilterFreq) * leftMeterValue;
-    const weightedRightMeterValue = (0, _aWeighting.a)(rightFilterFreq) * rightMeterValue;
-
-    if (!(isFinite(rightMeterValue) && isFinite(leftMeterValue))) {
-      return;
-    } // Velocity is depended on distance to the target frequency
-
-
-    this.currentVelocity = Math.min(Math.max((rightMeterValue - leftMeterValue) * this.velocity, -this.options.velocityRange), this.options.velocityRange); // Update the frequencies
-
-    this.currentNote += this.currentVelocity;
-    this.setFilterPoles(this.currentNote); // Change the synth note
-
-    const nextFrequency = midiToFrequency(this.currentNote);
-    this.synth.setNote(nextFrequency); // Debug output
-
-    (0, _utils.debug)('=========');
-    (0, _utils.debug)(leftMeterValue, rightMeterValue, this.currentVelocity);
-    (0, _utils.debug)(nextFrequency);
-  }
-
-}
-
-exports.default = FlockingAgent;
-},{"a-weighting":"d8081e66cb72ea163d5d73d58e8b6f14","../utils":"4a1b9fb8a9bff5151cd568c9bcbb2aec","tone":"b8906ac01d5dae3b93be7106dc3620c6"}],"d8081e66cb72ea163d5d73d58e8b6f14":[function(require,module,exports) {
-/**
- * @module  noise-weighting
- */
-
-module.exports = {
-	a: require('./a'),
-	b: require('./b'),
-	c: require('./c'),
-	d: require('./d'),
-	m: require('./m'),
-	z: require('./z')
-};
-
-},{"./a":"8932f65bc1167fa8a0fb19c214210ee6","./b":"afd233f996473e069fbcaba93e95ea67","./c":"a9efa6244e5300b1c552c450e8e92357","./d":"efb96c8711b6dd45eca02e66e23cb053","./m":"460672032661dad8c07bdee559b53ccc","./z":"e7d0a464dee391914e1b027a7cd11717"}],"8932f65bc1167fa8a0fb19c214210ee6":[function(require,module,exports) {
-module.exports = function a (f) {
-	var f2 = f*f;
-	return 1.2588966 * 148840000 * f2*f2 /
-	((f2 + 424.36) * Math.sqrt((f2 + 11599.29) * (f2 + 544496.41)) * (f2 + 148840000));
-};
-
-},{}],"afd233f996473e069fbcaba93e95ea67":[function(require,module,exports) {
-module.exports = function b (f) {
-	var f2 = f*f;
-	return 1.019764760044717 * 148840000 * f*f2 /
-	((f2 + 424.36) * Math.sqrt(f2 + 25122.25) * (f2 + 148840000));
-};
-
-},{}],"a9efa6244e5300b1c552c450e8e92357":[function(require,module,exports) {
-module.exports = function c (f) {
-	var f2 = f*f;
-	return 1.0069316688518042 * 148840000 * f2 /
-	((f2 + 424.36) * (f2 + 148840000));
-};
-
-},{}],"efb96c8711b6dd45eca02e66e23cb053":[function(require,module,exports) {
-module.exports = function d (f) {
-	var f2 = f*f;
-	return (f / 6.8966888496476e-5) * Math.sqrt(
-		(
-			((1037918.48 - f2)*(1037918.48 - f2) + 1080768.16*f2) /
-			((9837328 - f2)*(9837328 - f2) + 11723776*f2)
-		) /	((f2 + 79919.29) * (f2 + 1345600))
-	);
-};
-
-},{}],"460672032661dad8c07bdee559b53ccc":[function(require,module,exports) {
-module.exports = function itu (f) {
-	var f2 = f*f;
-
-	var h1 = -4.737338981378384e-24*f2*f2*f2 + 2.043828333606125e-15*f2*f2 - 1.363894795463638e-7*f2 + 1;
-	var h2 = 1.306612257412824e-19*f2*f2*f - 2.118150887518656e-11*f2*f + 5.559488023498642e-4*f;
-
-	return 8.128305161640991 * 1.246332637532143e-4 * f / Math.sqrt(h1*h1 + h2*h2);
-};
-
-},{}],"e7d0a464dee391914e1b027a7cd11717":[function(require,module,exports) {
-module.exports = function (f) {
-	return 1;
-};
-
 },{}],"4a1b9fb8a9bff5151cd568c9bcbb2aec":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.midiToFrequency = midiToFrequency;
 exports.randomRange = randomRange;
 exports.randomItem = randomItem;
-exports.midiToFrequency = midiToFrequency;
 exports.frequencyToMidi = frequencyToMidi;
 exports.isAudioSupported = isAudioSupported;
 exports.isUserMediaSupported = isUserMediaSupported;
 exports.isIOS = isIOS;
 exports.getQueryVariable = getQueryVariable;
 exports.debug = debug;
-let toneMidiConverter = null;
 
-function getMidiConverter() {
-  const Tone = require('tone');
+var _tone = require("tone");
 
-  if (!toneMidiConverter) {
-    toneMidiConverter = new Tone.Frequency();
-  }
-
-  return toneMidiConverter;
+function midiToFrequency(midi) {
+  return new _tone.Frequency(midi, "midi").toFrequency();
 }
 
 function randomRange(min, max) {
@@ -41654,12 +41422,8 @@ function randomItem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function midiToFrequency(midiNote) {
-  return getMidiConverter().midiToFrequency(midiNote);
-}
-
 function frequencyToMidi(frequency) {
-  return getMidiConverter().frequencyToMidi(midiNote);
+  return frequencyToMidi(frequency);
 }
 
 function isAudioSupported() {
@@ -41696,7 +41460,7 @@ function debug(...args) {
 }
 },{"tone":"b8906ac01d5dae3b93be7106dc3620c6"}],"830ce48931a6ecc988fe85d7f63f8b93":[function(require,module,exports) {
 module.exports = JSON.parse("{\"apiKey\":\"AIzaSyA72_qMzv8M1kjhSw_0TafCgaMpDoTq2TY\",\"authDomain\":\"swarm-animism.firebaseapp.com\",\"databaseURL\":\"https://swarm-animism.firebaseio.com\",\"projectId\":\"swarm-animism\",\"storageBucket\":\"\",\"messagingSenderId\":\"996873372497\"}");
-},{}],"0dd6ff2a1abedea40bcb41337c711a07":[function(require,module,exports) {
+},{}],"b9e665925a6158b86c87379809f168e2":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -41706,84 +41470,114 @@ exports.default = void 0;
 
 var _tone = require("tone");
 
-var _bandpassPolyTracker = require("../behaviours/bandpassPolyTracker");
-
 var _utils = require("../utils");
 
-// import bandpassChordDetector from '../behaviours/bandpassPolyTracker'
+var _bandpassPolyTracker = _interopRequireDefault(require("../behaviours/bandpassPolyTracker"));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+// const CHORDS = [
+//   { name: 'C', notes: [60, 64, 67], next: 'G' },
+//   { name: 'G', notes: [67, 71, 74], next: 'Am' },
+//   { name: 'Am', notes: [69, 72, 76], next: 'F' },
+//   { name: 'F', notes: [65, 69, 72], next: 'C' },
+// ]
+const CHORDS = [{
+  name: 'C',
+  notes: [60],
+  next: 'G'
+}, {
+  name: 'G',
+  notes: [67, 71, 74],
+  next: 'Am'
+}, {
+  name: 'Am',
+  notes: [69, 72, 76],
+  next: 'F'
+}, {
+  name: 'F',
+  notes: [65, 69, 72],
+  next: 'C'
+}];
 const defaultOptions = {
-  delayTimeBase: 0.5,
-  muteSensitivity: 0.001,
-  triggerChord: [60, 65]
+  minLFOFrequency: 0.1,
+  maxLFOFrequency: 0.5,
+  minVolume: 0.25,
+  maxVolume: 0.9
 };
 
-class ImpulseAgent {
+class ChordAgent {
   constructor(options = {}, visuals, gainNode) {
-    this.options = Object.assign({}, defaultOptions, options);
-    this.visuals = visuals;
     this.converter = new _tone.Frequency();
-    this.meter = new _tone.DCMeter();
-    this.delay = new _tone.Delay(this.options.delayTimeBase, 10 * this.options.delayTimeBase).connect(this.meter);
-    this.synth = new _tone.NoiseSynth({
-      noise: {
-        type: 'brown'
+    this.visuals = visuals;
+    this.options = Object.assign({}, defaultOptions, options); // Synthesized sound of our agent (output)
+
+    this.synth = new _tone.PolySynth(); //(3, Synth)
+
+    this.synth.set({
+      oscillator: {
+        type: 'sine'
       },
       envelope: {
-        attack: 0.5,
-        decay: 0.05,
-        sustain: 1,
-        release: 0.7
+        attack: 0.005,
+        decay: 0.1,
+        sustain: 0.7,
+        release: 1
       }
-    }).toDestination();
-    this.gainNode = gainNode;
-    this.gainNode.connect(this.delay); // this.isNewChordTriggered = bandpassChordDetector(
-    //   this.options.triggerChord,
-    //   gainNode
-    // )
+    });
+    this.synthGainNode = new _tone.Gain();
+    this.synthGainNode.toDestination();
+    this.synth.connect(this.synthGainNode); // LFO for controlling the synth gain
 
-    this.previousChordTriggered = true;
-    const smoother = (0, _bandpassPolyTracker.getSmoothingFunctor)();
-
-    this.smoothedMeter = () => smoother(Math.abs(this.meter.getValue())) * 100;
-
-    this.lastMeterValue = this.smoothedMeter();
+    const lfoFrequency = (0, _utils.randomRange)(this.options.minLFOFrequency, this.options.maxLFOFrequency);
+    this.gainLFO = new _tone.LFO(lfoFrequency, this.options.minVolume, this.options.maxVolume);
+    this.gainLFO.connect(this.synthGainNode.gain);
+    this.chordDetectors = Object.keys(CHORDS).map(chordName => {
+      return (0, _bandpassPolyTracker.default)(CHORDS[chordName].notes, gainNode);
+    });
+    this.playingChord = null;
   }
 
-  start() {}
+  start() {
+    // Start the LFO
+    this.gainLFO.start();
+  }
 
   stop() {// unused
   }
 
   update() {
-    // const {
-    //   delayTimeBase,
-    // } = this.options
-    // Check if chord was triggered
-    // constchordTriggered = this.isNewChordTriggered()
-    //console.log(this.meter.getLevel())
-    const meterValue = this.smoothedMeter();
-    console.log(meterValue);
-    const meterRise = meterValue - this.lastMeterValue;
-    const rawMeter = this.meter.getValue();
-    console.log("impulse meter rise (smoothed)", meterRise);
-    (0, _utils.debug)("impulse meter rise (smoothed)", meterRise);
-    const chordTriggered = meterRise > 0.5;
-    this.lastMeterValue = meterValue; // Check some requirements before we really can make sound
+    const chordsTriggered = CHORDS.map(({
+      name
+    }, i) => {
+      return {
+        name,
+        triggered: this.chordDetectors[i]()
+      };
+    }).filter(t => t.triggered).map(({
+      name
+    }) => name);
+    if (chordsTriggered.length > 0) console.log('chordsTriggered', chordsTriggered);
 
-    if (chordTriggered && !this.previousChordTriggered // chordTriggered
-    ) {
-        this.visuals.flash();
-        this.delay.delayTime.setValueAtTime(this.options.delayTimeBase * Math.ceil(Math.random() * 8), '+0');
-        this.synth.triggerAttackRelease(0.1);
-      }
-
-    this.previousChordTriggered = chordTriggered;
+    if (chordsTriggered.length > 0) {
+      const triggeredChordName = chordsTriggered[0];
+      const nextChord = CHORDS.find(({
+        name
+      }) => name === triggeredChordName).next;
+      const notes = CHORDS.find(({
+        name
+      }) => name === nextChord).notes;
+      this.synth.triggerAttackRelease(notes.map(_utils.midiToFrequency), '1n', '+1n');
+      this.visuals.flash(); // console.log(triggeredChordName)
+      // console.log('next', nextChord)
+      // console.log(notes)
+    }
   }
 
 }
 
-exports.default = ImpulseAgent;
-},{"tone":"b8906ac01d5dae3b93be7106dc3620c6","../behaviours/bandpassPolyTracker":"b3880a84399490329252c4d1f4ca50e7","../utils":"4a1b9fb8a9bff5151cd568c9bcbb2aec"}],"b3880a84399490329252c4d1f4ca50e7":[function(require,module,exports) {
+exports.default = ChordAgent;
+},{"../utils":"4a1b9fb8a9bff5151cd568c9bcbb2aec","../behaviours/bandpassPolyTracker":"b3880a84399490329252c4d1f4ca50e7","tone":"b8906ac01d5dae3b93be7106dc3620c6"}],"b3880a84399490329252c4d1f4ca50e7":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -41793,6 +41587,8 @@ exports.getSmoothingFunctor = getSmoothingFunctor;
 exports.default = createBandpassNoteTracker;
 
 var _ramda = require("ramda");
+
+var _tone = require("tone");
 
 var _utils = require("../utils");
 
@@ -41816,17 +41612,15 @@ function getSmoothingFunctor(smoothing = 0.9, startValue = null) {
 }
 
 function createBandpassNoteTracker(midiNotes, inputNode) {
-  const Tone = require('tone');
-
   const filterMeters = midiNotes.map(key => {
-    const filter = new Tone.Filter({
+    const filter = new _tone.Filter({
       frequency: (0, _utils.midiToFrequency)(key),
       type: 'bandpass',
       rolloff: -48,
       Q: 20,
       gain: 0
     });
-    const meter = new Tone.Meter();
+    const meter = new _tone.Meter();
     inputNode.connect(filter);
     filter.connect(meter);
     return meter;
@@ -41834,7 +41628,7 @@ function createBandpassNoteTracker(midiNotes, inputNode) {
     const smoother = getSmoothingFunctor(SMOOTHING);
     return () => smoother(meter.getValue());
   });
-  const overallInputMeter = new Tone.Meter();
+  const overallInputMeter = new _tone.Meter();
   const inputMeterSmoother = getSmoothingFunctor(SMOOTHING);
 
   const smoothedOverallInputMeter = () => {
@@ -41846,7 +41640,7 @@ function createBandpassNoteTracker(midiNotes, inputNode) {
 
   function updateFunction() {
     const filterMeterValues = filterMeters.map(meter => meter());
-    const overallInputLevel = smoothedOverallInputMeter();
+    const overallInputLevel = smoothedOverallInputMeter(); // console.log(overallInputLevel)
 
     if (overallInputLevel === null) {
       return false;
@@ -41856,7 +41650,7 @@ function createBandpassNoteTracker(midiNotes, inputNode) {
       return level - overallInputLevel;
     }); // console.log(normalizedFilterMeterValues, overallInputLevel)
 
-    const chordTriggered = (0, _ramda.all)(level => level > -20, normalizedFilterMeterValues) && overallInputLevel > -10;
+    const chordTriggered = (0, _ramda.all)(level => level > -40, normalizedFilterMeterValues) && overallInputLevel > -30;
     const newChordTriggered = !previousChordTriggered && chordTriggered;
     previousChordTriggered = chordTriggered;
     return newChordTriggered;

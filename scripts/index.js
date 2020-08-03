@@ -7,9 +7,9 @@ import 'firebase/database'
 import Visuals from './visuals'
 import Audio from './audio'
 
-import FlockingAgent from './agents/flocking'
-import ImpulseAgent from './agents/impulse'
-//import ChordAgent from './agents/chord'
+// import FlockingAgent from './agents/flocking'
+// import ImpulseAgent from './agents/impulse'
+import ChordAgent from './agents/chord'
 import {
   getQueryVariable,
   isAudioSupported,
@@ -161,9 +161,9 @@ function startPerformance() {
   audio.setup(!hasControl)
 
   agentCollection = {
-    impulse: new ImpulseAgent({}, visuals, audio.gain),
-    // chord: new ChordAgent({}, visuals, audio.gain),
-    flocking: new FlockingAgent({}, visuals, audio.gain),
+    // impulse: new ImpulseAgent({}, visuals, audio.gain),
+    chord: new ChordAgent({}, visuals, audio.gain),
+    // flocking: new FlockingAgent({}, visuals, audio.gain),
   }
 
   // Initialise remote control via Firebase

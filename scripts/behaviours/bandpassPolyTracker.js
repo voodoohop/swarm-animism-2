@@ -1,4 +1,5 @@
 import { all } from 'ramda'
+import {Filter, Meter} from "tone";
 
 import { midiToFrequency } from '../utils'
 
@@ -23,10 +24,9 @@ export function getSmoothingFunctor(smoothing = 0.9, startValue = null) {
 }
 
 export default function createBandpassNoteTracker(midiNotes, inputNode) {
-  const Tone = require('tone')
 
   const filterMeters = midiNotes.map(key => {
-    const filter = new Tone.Filter({
+    const filter = new Filter({
       frequency: midiToFrequency(key),
       type: 'bandpass',
       rolloff: -48,
@@ -34,7 +34,7 @@ export default function createBandpassNoteTracker(midiNotes, inputNode) {
       gain: 0,
     })
 
-    const meter = new Tone.Meter()
+    const meter = new Meter()
 
     inputNode.connect(filter)
     filter.connect(meter)
@@ -45,7 +45,7 @@ export default function createBandpassNoteTracker(midiNotes, inputNode) {
     return () => smoother(meter.getValue())
   })
 
-  const overallInputMeter = new Tone.Meter()
+  const overallInputMeter = new Meter()
   const inputMeterSmoother = getSmoothingFunctor(SMOOTHING)
 
   const smoothedOverallInputMeter = () => {
@@ -60,7 +60,7 @@ export default function createBandpassNoteTracker(midiNotes, inputNode) {
   function updateFunction() {
     const filterMeterValues = filterMeters.map(meter => meter())
     const overallInputLevel  = smoothedOverallInputMeter()
-
+    // console.log(overallInputLevel)
     if (overallInputLevel === null) {
       return false
     }
@@ -72,8 +72,8 @@ export default function createBandpassNoteTracker(midiNotes, inputNode) {
     // console.log(normalizedFilterMeterValues, overallInputLevel)
 
     const chordTriggered = (
-      all(level => level > -20, normalizedFilterMeterValues) &&
-      overallInputLevel > -10
+      all(level => level > -40, normalizedFilterMeterValues) &&
+      overallInputLevel > -30
     )
 
     const newChordTriggered = !previousChordTriggered && chordTriggered

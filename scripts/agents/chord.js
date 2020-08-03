@@ -1,3 +1,5 @@
+import {Frequency,  Gain, Delay, NoiseSynth, PolySynth, Synth, LFO} from "tone";
+
 import {
   midiToFrequency,
   randomRange,
@@ -5,13 +7,19 @@ import {
 
 import bandpassChordDetector from '../behaviours/bandpassPolyTracker'
 
+// const CHORDS = [
+//   { name: 'C', notes: [60, 64, 67], next: 'G' },
+//   { name: 'G', notes: [67, 71, 74], next: 'Am' },
+//   { name: 'Am', notes: [69, 72, 76], next: 'F' },
+//   { name: 'F', notes: [65, 69, 72], next: 'C' },
+// ]
+
 const CHORDS = [
-  { name: 'C', notes: [60, 64, 67], next: 'G' },
+  { name: 'C', notes: [60], next: 'G' },
   { name: 'G', notes: [67, 71, 74], next: 'Am' },
   { name: 'Am', notes: [69, 72, 76], next: 'F' },
   { name: 'F', notes: [65, 69, 72], next: 'C' },
 ]
-
 const defaultOptions = {
   minLFOFrequency: 0.1,
   maxLFOFrequency: 0.5,
@@ -21,14 +29,13 @@ const defaultOptions = {
 
 export default class ChordAgent {
   constructor(options = {}, visuals, gainNode) {
-    const Tone = require('tone')
 
-    this.converter = new Tone.Frequency()
+    this.converter = new Frequency()
     this.visuals = visuals
     this.options = Object.assign({}, defaultOptions, options)
 
     // Synthesized sound of our agent (output)
-    this.synth = new Tone.PolySynth(3, Tone.Synth)
+    this.synth = new PolySynth() //(3, Synth)
 
     this.synth.set({
       oscillator: {
@@ -42,7 +49,7 @@ export default class ChordAgent {
       },
     })
 
-    this.synthGainNode = new Tone.Gain()
+    this.synthGainNode = new Gain()
     this.synthGainNode.toDestination()
 
     this.synth.connect(this.synthGainNode)
@@ -53,7 +60,7 @@ export default class ChordAgent {
       this.options.maxLFOFrequency
     )
 
-    this.gainLFO = new Tone.LFO(
+    this.gainLFO = new LFO(
       lfoFrequency,
       this.options.minVolume,
       this.options.maxVolume
@@ -88,7 +95,8 @@ export default class ChordAgent {
       .filter(t => t.triggered)
       .map(({ name }) => name)
 
-    // console.log('chordsTriggered', chordsTriggered)
+      if (chordsTriggered.length >0)
+      console.log('chordsTriggered', chordsTriggered)
 
     if (chordsTriggered.length > 0) {
       const triggeredChordName = chordsTriggered[0]

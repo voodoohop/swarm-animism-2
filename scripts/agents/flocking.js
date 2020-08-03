@@ -19,10 +19,6 @@ const defaultOptions = {
   triggerChord: [60, 67],
 }
 
-function midiToFrequency(midi) {
-  return new Frequency(midi,"midi").toFrequency();
-}
-
 export default class FlockingAgent {
   constructor(options = {}, visuals, gainNode) {
     this.visuals = visuals
