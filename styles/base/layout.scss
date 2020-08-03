@@ -1,0 +1,23 @@
+html,
+body {
+  display: flex;
+
+  justify-content: center;
+  align-items: center;
+
+  height: 100%;
+  width: 100%;
+
+  background-color: $white;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+
+  overflow: hidden;
+}
+
+@media (min-width: 600px) {
+  body {
+    background-size: contain;
+  }
+}

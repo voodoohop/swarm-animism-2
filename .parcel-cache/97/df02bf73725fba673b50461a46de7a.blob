@@ -1,0 +1,86 @@
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+
+var _tone = require("tone");
+
+var _bandpassPolyTracker = require("../behaviours/bandpassPolyTracker");
+
+var _utils = require("../utils");
+
+// import bandpassChordDetector from '../behaviours/bandpassPolyTracker'
+const defaultOptions = {
+  delayTimeBase: 0.5,
+  muteSensitivity: 0.001,
+  triggerChord: [60, 65]
+};
+
+class ImpulseAgent {
+  constructor(options = {}, visuals, gainNode) {
+    this.options = Object.assign({}, defaultOptions, options);
+    this.visuals = visuals;
+    this.converter = new _tone.Frequency();
+    this.meter = new _tone.DCMeter();
+    this.delay = new _tone.Delay(this.options.delayTimeBase, 10 * this.options.delayTimeBase).connect(this.meter);
+    this.synth = new _tone.NoiseSynth({
+      noise: {
+        type: 'brown'
+      },
+      envelope: {
+        attack: 0.5,
+        decay: 0.05,
+        sustain: 1,
+        release: 0.7
+      }
+    }).toDestination();
+    this.gainNode = gainNode;
+    this.gainNode.connect(this.delay); // this.isNewChordTriggered = bandpassChordDetector(
+    //   this.options.triggerChord,
+    //   gainNode
+    // )
+
+    this.previousChordTriggered = true;
+    const smoother = (0, _bandpassPolyTracker.getSmoothingFunctor)();
+
+    this.smoothedMeter = () => smoother(Math.abs(this.meter.getValue())) * 100;
+
+    this.lastMeterValue = this.smoothedMeter();
+  }
+
+  start() {}
+
+  stop() {// unused
+  }
+
+  update() {
+    // const {
+    //   delayTimeBase,
+    // } = this.options
+    // Check if chord was triggered
+    // constchordTriggered = this.isNewChordTriggered()
+    //console.log(this.meter.getLevel())
+    const meterValue = this.smoothedMeter();
+    console.log(meterValue);
+    const meterRise = meterValue - this.lastMeterValue;
+    const rawMeter = this.meter.getValue();
+    console.log("impulse meter rise (smoothed)", meterRise);
+    (0, _utils.debug)("impulse meter rise (smoothed)", meterRise);
+    const chordTriggered = meterRise > 300;
+    this.lastMeterValue = meterValue; // Check some requirements before we really can make sound
+
+    if (chordTriggered && !this.previousChordTriggered // chordTriggered
+    ) {
+        this.visuals.flash();
+        this.delay.delayTime.setValueAtTime(this.options.delayTimeBase * Math.ceil(Math.random() * 8), '+0');
+        this.synth.triggerAttackRelease(0.1);
+      }
+
+    this.previousChordTriggered = chordTriggered;
+  }
+
+}
+
+exports.default = ImpulseAgent;

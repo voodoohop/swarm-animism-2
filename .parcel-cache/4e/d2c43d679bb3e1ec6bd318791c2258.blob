@@ -1,0 +1,74 @@
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.randomRange = randomRange;
+exports.randomItem = randomItem;
+exports.midiToFrequency = midiToFrequency;
+exports.frequencyToMidi = frequencyToMidi;
+exports.isAudioSupported = isAudioSupported;
+exports.isUserMediaSupported = isUserMediaSupported;
+exports.isIOS = isIOS;
+exports.getQueryVariable = getQueryVariable;
+exports.debug = debug;
+let toneMidiConverter = null;
+
+function getMidiConverter() {
+  const Tone = require('tone');
+
+  if (!toneMidiConverter) {
+    toneMidiConverter = new Tone.Frequency();
+  }
+
+  return toneMidiConverter;
+}
+
+function randomRange(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+function randomItem(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function midiToFrequency(midiNote) {
+  return getMidiConverter().midiToFrequency(midiNote);
+}
+
+function frequencyToMidi(frequency) {
+  return getMidiConverter().frequencyToMidi(midiNote);
+}
+
+function isAudioSupported() {
+  return window.AudioContext || window.webkitAudioContext;
+}
+
+function isUserMediaSupported() {
+  return window.navigator.mediaDevices && window.navigator.mediaDevices.getUserMedia;
+}
+
+function isIOS() {
+  return /iPad|iPhone|iPod/.test(window.navigator.userAgent);
+}
+
+function getQueryVariable(variable) {
+  const query = window.location.search.substring(1);
+  const vars = query.split('&');
+
+  for (let i = 0; i < vars.length; i++) {
+    const pair = vars[i].split('=');
+
+    if (decodeURIComponent(pair[0]) == variable) {
+      return decodeURIComponent(pair[1]);
+    }
+  }
+
+  return null;
+}
+
+function debug(...args) {
+  if (getQueryVariable('debug')) {
+    console.log(...args);
+  }
+}

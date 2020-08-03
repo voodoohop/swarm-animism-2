@@ -1,0 +1,67 @@
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.default = void 0;
+
+var _spiritImage = _interopRequireDefault(require("url:../../images/spirit-image-1.jpg"));
+
+var _spiritImage2 = _interopRequireDefault(require("url:../../images/spirit-image-2.jpg"));
+
+var _spiritImage3 = _interopRequireDefault(require("url:../../images/spirit-image-3.jpg"));
+
+var _spiritImage4 = _interopRequireDefault(require("url:../../images/spirit-image-4.jpg"));
+
+var _spiritImage5 = _interopRequireDefault(require("url:../../images/spirit-image-5.jpg"));
+
+var _spiritImage6 = _interopRequireDefault(require("url:../../images/spirit-image-6.jpg"));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const FLASH_CLASS = 'screen--flash';
+const ACTIVE_CLASS = 'screen--visible';
+const BACKGROUND_ID = 'background';
+const animalImages = {
+  image1: _spiritImage.default,
+  image2: _spiritImage2.default,
+  image3: _spiritImage3.default,
+  image4: _spiritImage4.default,
+  image5: _spiritImage5.default,
+  image6: _spiritImage6.default
+};
+
+class Visuals {
+  constructor(elem, color) {
+    this.elem = elem;
+    this.backgroundElem = document.getElementById(BACKGROUND_ID);
+    this.timeout = null;
+  }
+
+  setToColor(color) {
+    this.elem.style.backgroundColor = 'rgb(' + color.join(',') + ')';
+  }
+
+  resetColor() {
+    this.elem.style.backgroundColor = null;
+  }
+
+  setAnimal(animalName) {
+    this.elem.classList.add(ACTIVE_CLASS);
+    this.backgroundElem.style.backgroundImage = `url(${animalImages[animalName]})`;
+  }
+
+  flash(duration = 200) {
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+    }
+
+    this.elem.classList.add(FLASH_CLASS);
+    this.timeout = setTimeout(() => {
+      this.elem.classList.remove(FLASH_CLASS);
+    }, duration);
+  }
+
+}
+
+exports.default = Visuals;

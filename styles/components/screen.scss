@@ -1,0 +1,28 @@
+.screen {
+  position: absolute;
+
+  display: none;
+
+  height: 100%;
+  width: 100%;
+
+  transform: translate3d(0, 0, 0);
+
+  transition: background 200ms ease-out;
+  -webkit-transition: background 200ms ease-out;
+
+  opacity: .5;
+}
+
+.screen--visible {
+  display: initial;
+}
+
+.screen--flash {
+  opacity: 1;
+
+  background-color: $black;
+
+  transition: background 100ms ease-in-out;
+  -webkit-transition: background 100ms ease-out;
+}

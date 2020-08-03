@@ -1,0 +1,17 @@
+.error {
+  padding: 30px;
+
+  text-align: center;
+
+  display: none;
+
+  z-index: 999;
+
+  color: $white;
+
+  background-color: $black;
+}
+
+.error--visible {
+  display: block;
+}

@@ -1,0 +1,17 @@
+{
+  "name": "swarm-animism-2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "parcel": "^2.0.0-beta.1",
+    "sass": "^1.26.10"
+  },
+  "dependencies": {
+    "a-weighting": "^1.1.0",
+    "firebase": "^7.17.1",
+    "normalize.css": "^8.0.1",
+    "ramda": "^0.27.1",
+    "tone": "^14.7.39"
+  }
+}
